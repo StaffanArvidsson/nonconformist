@@ -7,8 +7,8 @@ Aggregated conformal predictors
 # Authors: Henrik Linusson
 
 import numpy as np
-from sklearn.cross_validation import KFold, StratifiedKFold
-from sklearn.cross_validation import ShuffleSplit, StratifiedShuffleSplit
+from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import ShuffleSplit, StratifiedShuffleSplit
 from sklearn.base import clone
 from nonconformist.base import BaseEstimator
 from nonconformist.util import calc_p
@@ -51,10 +51,10 @@ class CrossSampler(object):
 	"""
 	def gen_samples(self, y, n_samples, problem_type):
 		if problem_type == 'classification':
-			folds = StratifiedKFold(y, n_folds=n_samples)
+			splitter = StratifiedKFold(n_splits=n_samples)
 		else:
-			folds = KFold(y.size, n_folds=n_samples)
-		for train, cal in folds:
+			splitter = KFold(n_splits=n_samples)
+		for train, cal in splitter.split(np.zeros(len(y)), y):
 			yield train, cal
 
 
@@ -73,20 +73,19 @@ class RandomSubSampler(object):
 	Examples
 	--------
 	"""
-	def __init__(self, calibration_portion=0.3):
+	def __init__(self, calibration_portion=0.3, stratified = True):
 		self.cal_portion = calibration_portion
+		self.stratified = stratified
 
 	def gen_samples(self, y, n_samples, problem_type):
-		if problem_type == 'classification':
-			splits = StratifiedShuffleSplit(y,
-			                                n_iter=n_samples,
+		if problem_type == 'classification' and self.stratified:
+			splitter = StratifiedShuffleSplit(n_splits=n_samples,
 			                                test_size=self.cal_portion)
 		else:
-			splits = ShuffleSplit(y.size,
-			                      n_iter=n_samples,
+			splitter = ShuffleSplit(n_splits=n_samples,
 			                      test_size=self.cal_portion)
 
-		for train, cal in splits:
+		for train, cal in splitter.split(np.zeros(len(y)), y):
 			yield train, cal
 
 
@@ -127,7 +126,7 @@ class AggregatedCp(BaseEstimator):
 	sampler : object
 		Sampler object used to generate training and calibration examples.
 
-	agg_func : callable
+	aggregation_func : callable
 		Function used to aggregate the predictions of the underlying
 		conformal predictors
 
